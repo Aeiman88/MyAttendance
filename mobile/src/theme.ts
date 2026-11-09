@@ -1,0 +1,56 @@
+// DAICOE palette (navy, teal, blue-purple "iris", gold) — the same values as the admin website.
+export const C = {
+  ink: "#0d1830",
+  mist: "#f2f5fa",
+  white: "#ffffff",
+  navy50: "#f0f4fb",
+  navy100: "#e3eaf6",
+  navy200: "#c9d5ec",
+  navy300: "#9fb2d8",
+  navy500: "#3d62ad",
+  navy600: "#27519e",
+  navy700: "#1a3b7e",
+  navy800: "#102a5e",
+  navy900: "#0a1a40",
+  navy950: "#06122e",
+  teal50: "#eaf9f7",
+  teal100: "#d3f2ef",
+  teal300: "#7dd9d3",
+  teal500: "#12a8a2",
+  teal600: "#0c8e8a",
+  teal700: "#0a7774",
+  iris50: "#f2f2fe",
+  iris100: "#e5e5fc",
+  iris500: "#5d5fe6",
+  iris600: "#4b4bcf",
+  iris700: "#3b3bb3",
+  gold50: "#fdf7e8",
+  gold100: "#fbefd2",
+  gold300: "#f3cd73",
+  gold500: "#e7a928",
+  gold600: "#c48a0c",
+  gold700: "#9a6a06",
+  danger50: "#fdf1f1",
+  danger100: "#fae1e1",
+  danger600: "#c93838",
+  danger700: "#a82b2b",
+  slate300: "#cbd5e1",
+  slate400: "#94a3b8",
+  slate500: "#64748b",
+  slate600: "#475569",
+};
+
+/** Plus Jakarta Sans, loaded in app/_layout.tsx. Custom fonts need one family name per weight. */
+export const F = {
+  regular: "PlusJakartaSans_400Regular",
+  medium: "PlusJakartaSans_500Medium",
+  semibold: "PlusJakartaSans_600SemiBold",
+  bold: "PlusJakartaSans_700Bold",
+  extrabold: "PlusJakartaSans_800ExtraBold",
+};
+
+export const shadow = {
+  card: "0 1px 2px rgba(6, 18, 46, 0.06)",
+  raised: "0 12px 28px -10px rgba(6, 18, 46, 0.45)",
+  button: "0 14px 30px -12px rgba(6, 18, 46, 0.6)",
+};

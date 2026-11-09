@@ -1,0 +1,20 @@
+# dependencies
+/node_modules
+
+# Next.js
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# local database and secrets (PGlite data, dev session key)
+/.data/
+.env
+.env.local
+.env.*.local
+
+# misc
+.DS_Store
+Thumbs.db
+npm-debug.log*
+/.scratch/

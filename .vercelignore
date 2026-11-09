@@ -1,0 +1,4 @@
+# The phone app has its own build (EAS); the website does not need it.
+mobile
+.scratch
+.data

@@ -1,0 +1,39 @@
+{
+  "name": "myattendance",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MyAttendance - DAICOE staff attendance: GPS clock in/out, records and the printable LPS attendance form",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.10",
+    "@fontsource-variable/plus-jakarta-sans": "5.3.0",
+    "bcryptjs": "3.0.3",
+    "jose": "6.2.13",
+    "leaflet": "1.9.4",
+    "lucide-react": "1.60.0",
+    "next": "16.4.5",
+    "postgres": "3.4.9",
+    "qrcode": "1.5.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/leaflet": "1.9.21",
+    "@types/node": "22.20.5",
+    "@types/qrcode": "1.5.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3"
+  }
+}

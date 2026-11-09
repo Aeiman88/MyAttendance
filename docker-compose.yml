@@ -1,0 +1,36 @@
+# MyAttendance on the Ubuntu server: Postgres + the app.
+#   1. cp .env.example .env   and set POSTGRES_PASSWORD and AUTH_SECRET
+#   2. docker compose up -d --build
+#   3. sudo tailscale serve --bg 3000     (gives https://<server>.<tailnet>.ts.net — phones need HTTPS for GPS)
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: myattendance
+      POSTGRES_USER: myattendance
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myattendance -d myattendance"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://myattendance:${POSTGRES_PASSWORD}@db:5432/myattendance
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env}
+      APP_ORIGINS: ${APP_ORIGINS:-}
+    ports:
+      # Only reachable on the server itself; Tailscale Serve publishes it over HTTPS.
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  db-data:

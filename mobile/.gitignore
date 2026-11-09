@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# native folders (created by "npx expo prebuild"; EAS makes its own)
+/android
+/ios
+
+# build outputs and signing files
+*.apk
+*.aab
+*.ipa
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+
+# local env
+.env
+.env.local
+
+# misc
+.DS_Store
+npm-debug.log*
+*.tsbuildinfo

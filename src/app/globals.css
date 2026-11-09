@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+/* DAICOE palette: navy, teal, blue-purple (iris) and gold. */
+@theme {
+  --font-sans: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-ink: #0d1830;
+  --color-mist: #f2f5fa;
+
+  --color-navy-50: #f0f4fb;
+  --color-navy-100: #e3eaf6;
+  --color-navy-200: #c9d5ec;
+  --color-navy-300: #9fb2d8;
+  --color-navy-500: #3d62ad;
+  --color-navy-600: #27519e;
+  --color-navy-700: #1a3b7e;
+  --color-navy-800: #102a5e;
+  --color-navy-900: #0a1a40;
+  --color-navy-950: #06122e;
+
+  --color-teal-50: #eaf9f7;
+  --color-teal-100: #d3f2ef;
+  --color-teal-300: #7dd9d3;
+  --color-teal-400: #3fc4bd;
+  --color-teal-500: #12a8a2;
+  --color-teal-600: #0c8e8a;
+  --color-teal-700: #0a7774;
+
+  --color-iris-50: #f2f2fe;
+  --color-iris-100: #e5e5fc;
+  --color-iris-300: #a9aaf5;
+  --color-iris-500: #5d5fe6;
+  --color-iris-600: #4b4bcf;
+  --color-iris-700: #3b3bb3;
+
+  --color-gold-50: #fdf7e8;
+  --color-gold-100: #fbefd2;
+  --color-gold-300: #f3cd73;
+  --color-gold-400: #eebb45;
+  --color-gold-500: #e7a928;
+  --color-gold-600: #c48a0c;
+  --color-gold-700: #9a6a06;
+
+  --color-danger-50: #fdf1f1;
+  --color-danger-100: #fae1e1;
+  --color-danger-600: #c93838;
+  --color-danger-700: #a82b2b;
+
+  --animate-breathe: breathe 3.2s ease-in-out infinite;
+  --animate-ping-soft: ping-soft 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+  --animate-sheet: sheet-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-fade: fade-in 160ms ease-out;
+  --animate-pop: pop 420ms cubic-bezier(0.2, 0.9, 0.3, 1.3);
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 0.55; }
+    50% { transform: scale(1.045); opacity: 0.9; }
+  }
+  @keyframes ping-soft {
+    0% { transform: scale(1); opacity: 0.7; }
+    80%, 100% { transform: scale(2.4); opacity: 0; }
+  }
+  @keyframes sheet-in {
+    from { transform: translateY(24px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes pop {
+    0% { transform: scale(0.92); }
+    60% { transform: scale(1.04); }
+    100% { transform: scale(1); }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
+  }
+  body {
+    background: var(--color-mist);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-iris-500);
+    outline-offset: 2px;
+  }
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+@utility safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Leaflet tweaks */
+.leaflet-container {
+  font-family: var(--font-sans);
+  /* Quiet dot grid that shows only while map tiles are loading or unreachable. */
+  background-color: #eaeff6;
+  background-image: radial-gradient(#cfd9ea 1.2px, transparent 1.2px);
+  background-size: 18px 18px;
+}
+.leaflet-control-attribution {
+  font-size: 9px !important;
+  background: rgb(255 255 255 / 0.75) !important;
+}
+.leaflet-control-zoom {
+  display: none;
+}
+.ma-zone-label {
+  background: var(--color-navy-800);
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgb(6 18 46 / 0.25);
+  white-space: nowrap;
+}
+.ma-zone-label::before {
+  display: none;
+}
+.ma-pin {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgb(6 18 46 / 0.3);
+}
