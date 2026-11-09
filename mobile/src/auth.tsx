@@ -16,6 +16,8 @@ export type Me = {
   };
   schedule: Schedule | null;
   orgName: string;
+  /** Street tiles for the Clock screen map (null = no key set on the server, so no streets). */
+  mapTiles?: { url: string; attribution: string } | null;
 };
 
 type Status = "loading" | "needs-server" | "signed-out" | "must-change-password" | "signed-in";

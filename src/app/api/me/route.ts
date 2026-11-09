@@ -2,6 +2,7 @@ import { getDb, getSettings } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { json, route } from "@/lib/http";
 import { defaultScheduleId, loadSchedules, resolveSchedule } from "@/lib/report";
+import { mapTiles } from "@/lib/map-tiles";
 
 export const dynamic = "force-dynamic";
 
@@ -18,5 +19,7 @@ export const GET = route(async () => {
     user: { ...user, email: staff?.email ?? "", phone: staff?.phone ?? "", signature: staff?.signature ?? null },
     schedule: resolveSchedule(schedules, user.scheduleId, fallback),
     orgName: settings.org_name,
+    // The phone app draws its map with these, so a new key never needs a new app build.
+    mapTiles: mapTiles(),
   });
 });

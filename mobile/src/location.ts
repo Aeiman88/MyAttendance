@@ -13,6 +13,8 @@ export function useLocation(enabled: boolean) {
   const [status, setStatus] = useState<GeoStatus>("locating");
   const [fix, setFix] = useState<Fix | null>(null);
   const [canAsk, setCanAsk] = useState(true);
+  /** True when no position has arrived after 15 seconds, so the screen can suggest fixes. */
+  const [slow, setSlow] = useState(false);
   const latest = useRef<Fix | null>(null);
   const sub = useRef<Location.LocationSubscription | null>(null);
   const [nonce, setNonce] = useState(0);
@@ -22,7 +24,8 @@ export function useLocation(enabled: boolean) {
       lat: loc.coords.latitude,
       lng: loc.coords.longitude,
       accuracy: loc.coords.accuracy ?? 9999,
-      at: Date.now(),
+      // When the reading was taken (a last-known position can be a minute old), so fresh() can tell.
+      at: loc.timestamp > 0 ? Math.min(loc.timestamp, Date.now()) : Date.now(),
       mocked: !!loc.mocked,
     };
     latest.current = f;
@@ -33,6 +36,7 @@ export function useLocation(enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
+    let slowTimer: ReturnType<typeof setTimeout> | undefined;
     (async () => {
       try {
         const perm = await Location.requestForegroundPermissionsAsync();
@@ -41,6 +45,19 @@ export function useLocation(enabled: boolean) {
         if (perm.status !== "granted") return setStatus("denied");
         if (Platform.OS !== "web" && !(await Location.hasServicesEnabledAsync())) return setStatus("off");
         if (!latest.current) setStatus("locating");
+        setSlow(false);
+        slowTimer = setTimeout(() => !cancelled && !latest.current && setSlow(true), 15_000);
+        // Show a rough position straight away (the last known one, then Wi-Fi/mobile network),
+        // while the watch below waits for a precise GPS fix. Indoors, GPS alone can take minutes.
+        Location.getLastKnownPositionAsync({ maxAge: 2 * 60_000, requiredAccuracy: 2_000 })
+          .then((loc) => loc && !cancelled && !latest.current && accept(loc))
+          .catch(() => {});
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+          .then((loc) => {
+            const better = !latest.current || (loc.coords.accuracy ?? 9999) < latest.current.accuracy;
+            if (!cancelled && better) accept(loc);
+          })
+          .catch(() => {});
         sub.current?.remove();
         sub.current = await Location.watchPositionAsync(
           { accuracy: Location.Accuracy.High, timeInterval: 4000, distanceInterval: 3 },
@@ -53,6 +70,7 @@ export function useLocation(enabled: boolean) {
     })();
     return () => {
       cancelled = true;
+      if (slowTimer) clearTimeout(slowTimer);
       sub.current?.remove();
       sub.current = null;
     };
@@ -90,5 +108,5 @@ export function useLocation(enabled: boolean) {
     throw new Error("Couldn't get your location in time. Move near a window or outdoors and try again.");
   }, [accept]);
 
-  return { status, fix, canAsk, retry, fresh };
+  return { status, fix, canAsk, slow: slow && !fix, retry, fresh };
 }

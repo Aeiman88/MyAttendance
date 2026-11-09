@@ -1,14 +1,28 @@
 import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import { View, type StyleProp, type ViewStyle } from "react-native";
-import { buildMapHtml, type MapState } from "./map-html";
+import { buildMapHtml, type MapState, type MapTiles } from "./map-html";
 
 type MapWindow = Window & { __update?: (s: MapState) => void; __recenter?: () => void };
 
 /** Web build only (used for testing): the same map page in an iframe instead of a WebView. */
-export function MapView({ state, recenterKey, style }: { state: MapState; recenterKey: number; style?: StyleProp<ViewStyle> }) {
+export function MapView({
+  state,
+  tiles,
+  recenterKey,
+  style,
+}: {
+  state: MapState;
+  tiles: MapTiles;
+  recenterKey: number;
+  style?: StyleProp<ViewStyle>;
+}) {
   const frame = useRef<HTMLIFrameElement | null>(null);
   const [ready, setReady] = useState(false);
-  const html = useMemo(buildMapHtml, []);
+  const tileUrl = tiles?.url ?? null;
+  const tileCredit = tiles?.attribution ?? null;
+  const html = useMemo(() => buildMapHtml(tileUrl ? { url: tileUrl, attribution: tileCredit ?? "" } : null), [tileUrl, tileCredit]);
+  // A new page (tiles arrived or changed) has to say "ready" again before it can take state.
+  useEffect(() => setReady(false), [html]);
   const win = () => frame.current?.contentWindow as MapWindow | null | undefined;
 
   useEffect(() => {

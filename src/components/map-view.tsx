@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import { checkZone } from "@/lib/geo";
+import { mapTiles } from "@/lib/map-tiles";
 
 export type MapZone = { id: number; name: string; lat: number; lng: number; radius_m: number; active?: boolean };
 export type MapMarker = { id: string | number; lat: number; lng: number; color: string; label?: string; title?: string };
@@ -24,11 +25,8 @@ type Props = {
   attribution?: "bottomright" | "topleft";
 };
 
-const TILE_URL =
-  process.env.NEXT_PUBLIC_MAP_TILES || "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
-const TILE_ATTRIBUTION =
-  process.env.NEXT_PUBLIC_MAP_ATTRIBUTION ||
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+// Street tiles need a CARTO key (see src/lib/map-tiles.ts); without one the map shows no streets.
+const TILES = mapTiles();
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -74,7 +72,7 @@ export function MapView({
       });
       m.attributionControl.setPrefix(false);
       m.attributionControl.setPosition(attribution);
-      lib.tileLayer(TILE_URL, { subdomains: "abcd", maxZoom: 20, attribution: TILE_ATTRIBUTION, detectRetina: true }).addTo(m);
+      if (TILES) lib.tileLayer(TILES.url, { subdomains: "abcd", maxZoom: 20, attribution: TILES.attribution }).addTo(m);
       m.setView([5.9459, 116.0709], 16);
       layers.current = {
         zones: lib.layerGroup().addTo(m),

@@ -1,13 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 import { WebView } from "react-native-webview";
-import { buildMapHtml, type MapState } from "./map-html";
+import { serverBase } from "@/api";
+import { buildMapHtml, type MapState, type MapTiles } from "./map-html";
 
 /** The Clock screen map: Leaflet in a WebView, fed with the zone(s) and the phone's position. */
-export function MapView({ state, recenterKey, style }: { state: MapState; recenterKey: number; style?: StyleProp<ViewStyle> }) {
+export function MapView({
+  state,
+  tiles,
+  recenterKey,
+  style,
+}: {
+  state: MapState;
+  tiles: MapTiles;
+  recenterKey: number;
+  style?: StyleProp<ViewStyle>;
+}) {
   const ref = useRef<{ injectJavaScript: (js: string) => void } | null>(null);
   const [ready, setReady] = useState(false);
-  const html = useMemo(buildMapHtml, []);
+  const tileUrl = tiles?.url ?? null;
+  const tileCredit = tiles?.attribution ?? null;
+  const html = useMemo(() => buildMapHtml(tileUrl ? { url: tileUrl, attribution: tileCredit ?? "" } : null), [tileUrl, tileCredit]);
+  // A new page (tiles arrived or changed) has to say "ready" again before it can take state.
+  useEffect(() => setReady(false), [html]);
 
   useEffect(() => {
     if (ready) ref.current?.injectJavaScript(`window.__update(${JSON.stringify(state)});true;`);
@@ -20,7 +35,8 @@ export function MapView({ state, recenterKey, style }: { state: MapState; recent
   return (
     <WebView
       ref={ref as never}
-      source={{ html, baseUrl: "https://myattendance.app/" }}
+      // The page runs as the MyAttendance website, so a map key limited to that website also works here.
+      source={{ html, baseUrl: `${serverBase() || "https://localhost"}/` }}
       originWhitelist={["*"]}
       onMessage={(e: { nativeEvent: { data: string } }) => e.nativeEvent.data === "ready" && setReady(true)}
       scrollEnabled={false}

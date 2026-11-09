@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, Pressable, RefreshControl, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { AppState, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { CalendarDays, ClipboardList, Clock3, History, LocateFixed, LogIn, LogOut, MapPin, MapPinOff, Navigation, ShieldCheck, TriangleAlert } from "lucide-react-native";
 import { MapView } from "@/map/MapView";
-import type { MapState, MapZone } from "@/map/map-html";
+import { BUILT_IN_TILES, type MapState, type MapZone } from "@/map/map-html";
+import { useAuth } from "@/auth";
 import { ClockButton, type ClockMode, type ClockTone } from "@/components/ClockButton";
 import { IconButton, TopBar } from "@/components/TopBar";
 import { Banner, Button, Field, Input, Sheet, Txt } from "@/components/ui";
@@ -41,6 +42,9 @@ export default function ClockScreen() {
     }, []),
   );
   const geo = useLocation(focused);
+  const { me } = useAuth();
+  // Street tiles come from the server; an older server that sends none falls back to the build setting.
+  const tiles = me?.mapTiles !== undefined ? me.mapTiles : BUILT_IN_TILES;
   // 250 px of map fits the whole screen on a 390 x 844 phone; taller phones get a bigger map (up to 320).
   const { height: winH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -197,14 +201,14 @@ export default function ClockScreen() {
       >
         {/* Location card */}
         <View style={st.locCard}>
-          <LocationBanner status={geo.status} hasFix={!!geo.fix} mocked={!!geo.fix?.mocked} />
+          <LocationBanner status={geo.status} hasFix={!!geo.fix} mocked={!!geo.fix?.mocked} slow={geo.slow} />
           <View style={st.coords}>
             <Coord label="Latitude" value={geo.fix?.lat} />
             <View style={st.vline} />
             <Coord label="Longitude" value={geo.fix?.lng} />
           </View>
           <View style={[st.map, { height: mapHeight }]}>
-            <MapView state={mapState} recenterKey={recenter} style={StyleSheet.absoluteFill} />
+            <MapView state={mapState} tiles={tiles} recenterKey={recenter} style={StyleSheet.absoluteFill} />
             {geo.fix ? (
               <View style={st.accuracy} pointerEvents="none">
                 <Txt size={11.5} weight="semibold" color={C.navy800} tabular>
@@ -231,6 +235,20 @@ export default function ClockScreen() {
                   {loadError}
                 </Txt>
                 <Button title="Try again" size="sm" variant="secondary" onPress={load} style={{ alignSelf: "flex-start" }} />
+              </View>
+            </Banner>
+          </View>
+        ) : null}
+
+        {geo.slow && geo.status === "locating" ? (
+          <View style={{ marginTop: 12 }}>
+            <Banner tone="warn">
+              <View style={{ gap: 8 }}>
+                <Txt size={13.5} weight="medium" color={C.navy900}>
+                  Still looking for your location. Check that Location is on, that MyAttendance has Precise location, and that
+                  Google Location Accuracy is on in your phone's location settings. Indoors, GPS works better near a window.
+                </Txt>
+                <Button title="Open app settings" size="sm" variant="secondary" onPress={() => Linking.openSettings()} style={{ alignSelf: "flex-start" }} />
               </View>
             </Banner>
           </View>
@@ -336,7 +354,7 @@ export default function ClockScreen() {
   );
 }
 
-function LocationBanner({ status, hasFix, mocked }: { status: string; hasFix: boolean; mocked: boolean }) {
+function LocationBanner({ status, hasFix, mocked, slow }: { status: string; hasFix: boolean; mocked: boolean; slow: boolean }) {
   const active = status === "active" && hasFix && !mocked;
   const bad = status === "denied" || status === "off" || status === "error" || mocked;
   return (
@@ -344,7 +362,7 @@ function LocationBanner({ status, hasFix, mocked }: { status: string; hasFix: bo
       {active ? <View style={st.dot} /> : bad ? <MapPinOff size={18} color={C.white} /> : null}
       {active ? <MapPin size={18} color={C.white} /> : null}
       <Txt size={15} weight="semibold" color={C.white}>
-        {mocked ? "Fake location detected" : active ? "Location active" : bad ? "Location unavailable" : "Finding your location…"}
+        {mocked ? "Fake location detected" : active ? "Location active" : bad ? "Location unavailable" : slow ? "Still finding your location…" : "Finding your location…"}
       </Txt>
     </View>
   );

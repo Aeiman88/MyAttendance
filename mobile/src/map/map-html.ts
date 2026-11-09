@@ -8,9 +8,20 @@ export type MapState = {
   padBottom: number;
 };
 
-const TILE_URL = process.env.EXPO_PUBLIC_MAP_TILES || "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
-const TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+/** Street tiles come from the server (/api/me), so a new map key never needs a new app build. Null = no streets. */
+export type MapTiles = { url: string; attribution: string } | null;
+
+/** Optional build-time override, for a server that doesn't send tiles. */
+export const BUILT_IN_TILES: MapTiles = process.env.EXPO_PUBLIC_MAP_TILES
+  ? {
+      url: process.env.EXPO_PUBLIC_MAP_TILES,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    }
+  : null;
+
+/** JSON for inside a <script> tag: never lets the text close the tag. */
+const js = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c");
 
 /**
  * A self-contained Leaflet page shown inside a WebView. The app pushes state in with
@@ -18,7 +29,7 @@ const TILE_ATTRIBUTION =
  * as the admin website: inside the zone, a close view that keeps the zone edge, its label and the
  * person's dot above the clock button; outside it, both the person and the zone in view.
  */
-export function buildMapHtml() {
+export function buildMapHtml(tiles: MapTiles) {
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <style>${LEAFLET_CSS}
@@ -39,7 +50,7 @@ html,body,#map{margin:0;padding:0;height:100%;width:100%;}
   function post(m){ try{ if(window.ReactNativeWebView){window.ReactNativeWebView.postMessage(m);} else if(window.parent){window.parent.postMessage({source:'ma-map',msg:m},'*');} }catch(e){} }
   var map=L.map('map',{zoomControl:false,attributionControl:true,boxZoom:false,keyboard:false});
   map.attributionControl.setPrefix(false); map.attributionControl.setPosition('topleft');
-  L.tileLayer(${JSON.stringify(TILE_URL)},{subdomains:'abcd',maxZoom:20,attribution:${JSON.stringify(TILE_ATTRIBUTION)},detectRetina:true}).addTo(map);
+  ${tiles ? `L.tileLayer(${js(tiles.url)},{subdomains:'abcd',maxZoom:20,attribution:${js(tiles.attribution)}}).addTo(map);` : ""}
   map.setView([5.9459,116.0709],16);
   var zonesLayer=L.layerGroup().addTo(map), meLayer=L.layerGroup().addTo(map);
   var state={zones:[],me:null,padBottom:116}, framed='none';

@@ -52,6 +52,7 @@ This works on any phone, on Wi-Fi or mobile data, with no VPN. The free tiers ar
 3. **Vercel:** choose **Add New → Project** and import the repository. Under **Environment Variables**, add:
    - `DATABASE_URL`: the Supabase string from step 1
    - `AUTH_SECRET`: a random string of 32+ characters. You can make one with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+   - `NEXT_PUBLIC_CARTO_API_KEY`: your free map key from [carto.com/basemaps/apikey](https://carto.com/basemaps/apikey), for streets on the maps. It can be added later; until then the maps show the zone and positions without streets.
 4. Click **Deploy**. Open the `https://….vercel.app` address and create the admin account.
 
 `vercel.json` runs the server in Singapore (`sin1`), next to the Supabase database, so every screen loads quickly from Kota Kinabalu. `.vercelignore` leaves the `mobile` folder out of the website build.
@@ -155,14 +156,15 @@ Each week runs Monday to Sunday, with two weeks per A4 landscape page, just like
 | `POSTGRES_PASSWORD` | Docker | Password for the Postgres container. |
 | `DEMO_MODE=1` | No | Shows the Demo data buttons on a production build. Never use it on the real system. |
 | `APP_ORIGINS` | No | Extra hostnames to accept if a reverse proxy rewrites the Host header. |
-| `NEXT_PUBLIC_MAP_TILES` | No | Different map tiles for the website. The default is CARTO Voyager (OpenStreetMap data). |
+| `NEXT_PUBLIC_CARTO_API_KEY` | For street maps | Free key from [carto.com/basemaps/apikey](https://carto.com/basemaps/apikey). Shows streets on the website's maps and the app's Clock screen (the app gets it from the server, no rebuild). Without it the maps show the zone and positions on a plain background. |
+| `NEXT_PUBLIC_MAP_TILES` | No | A different tile service instead of CARTO, e.g. `https://tiles.example.com/{z}/{x}/{y}.png`, with `NEXT_PUBLIC_MAP_ATTRIBUTION` for its credit line. |
 
 **Phone app** (`mobile/eas.json`, under each build profile's `env`)
 
 | Variable | What it does |
 | --- | --- |
 | `EXPO_PUBLIC_API_URL` | The server's HTTPS address, built into the app. Empty means the app asks on first launch. |
-| `EXPO_PUBLIC_MAP_TILES` | Different map tiles for the app's Clock screen. |
+| `EXPO_PUBLIC_MAP_TILES` | Map tiles for the Clock screen, only used with an older server that doesn't send its own map settings. |
 
 ## Project layout
 
