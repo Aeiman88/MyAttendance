@@ -130,9 +130,15 @@ export function Sheet({
   wide?: boolean;
 }) {
   const panel = useRef<HTMLDivElement>(null);
+  // Keep the latest onClose without re-running the effect below: callers pass a new function on every render,
+  // and re-running it on each keystroke would move the cursor back to the first field.
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -145,7 +151,7 @@ export function Sheet({
       document.body.style.overflow = prev;
       window.clearTimeout(t);
     };
-  }, [open, onClose]);
+  }, [open]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center print:hidden" role="dialog" aria-modal="true" aria-label={title}>
