@@ -3,6 +3,7 @@ import { audit, getDb } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { HttpError, body, json, route } from "@/lib/http";
 import { idParam, zoneFields } from "@/lib/validate";
+import { areaShape } from "@/lib/zone-shape";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -12,6 +13,8 @@ const Patch = z.object({
   lng: zoneFields.lng.optional(),
   radius_m: zoneFields.radius_m.optional(),
   active: zoneFields.active.optional(),
+  /** Corners for a drawn area, null to make the zone a circle again, left out to keep it as it is. */
+  polygon: zoneFields.polygon.optional(),
 });
 
 async function otherActiveZones(id: number) {
@@ -27,15 +30,27 @@ export const PATCH = route<Ctx>(async (req, { params }) => {
   if (d.active === false && (await otherActiveZones(id)) === 0) {
     throw new HttpError(400, "Keep at least one active zone, or every clock-in will count as External.");
   }
+  // A drawn area: its centre and radius come from the outline, not from the request.
+  const shape = d.polygon ? areaShape(d.polygon) : null;
   const db = await getDb();
   const row = await db.one(
     `update zones set name = coalesce($2, name), lat = coalesce($3, lat), lng = coalesce($4, lng),
-            radius_m = coalesce($5, radius_m), active = coalesce($6, active)
+            radius_m = coalesce($5, radius_m), active = coalesce($6, active),
+            polygon = case when $7::boolean then $8::jsonb else polygon end
       where id = $1 returning id`,
-    [id, d.name ?? null, d.lat ?? null, d.lng ?? null, d.radius_m ?? null, d.active ?? null],
+    [
+      id,
+      d.name ?? null,
+      shape?.lat ?? d.lat ?? null,
+      shape?.lng ?? d.lng ?? null,
+      shape?.radius_m ?? d.radius_m ?? null,
+      d.active ?? null,
+      d.polygon !== undefined,
+      shape ? JSON.stringify(shape.polygon) : null,
+    ],
   );
   if (!row) throw new HttpError(404, "Zone not found.");
-  await audit(db, admin.id, "zone.updated", `zone:${id}`, d);
+  await audit(db, admin.id, "zone.updated", `zone:${id}`, shape ? { ...d, ...shape } : d);
   return json({ ok: true });
 });
 

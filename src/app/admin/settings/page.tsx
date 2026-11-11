@@ -1,16 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Crosshair, MapPinned, Pencil, Plus, Smartphone, Trash2 } from "lucide-react";
+import { Crosshair, Eraser, MapPinned, Pencil, Pentagon, Plus, Smartphone, Trash2, Undo2 } from "lucide-react";
 import { PageHead, Panel } from "@/components/admin-shell";
-import { MapView } from "@/components/map-view";
-import { Button, Field, Input, Select, Sheet, Spinner, cx } from "@/components/ui";
+import { MapView, type MapZone } from "@/components/map-view";
+import { Button, Field, Input, Segmented, Select, Sheet, Spinner, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { api, errorMessage } from "@/lib/api";
+import { areaInfo, fmtArea, isArea, type LatLng } from "@/lib/geo";
 import type { Schedule } from "@/lib/rules";
 import { ENGLISH_DAYS, dmy, hm12, isoDow } from "@/lib/time";
 
-type Zone = { id: number; name: string; lat: number; lng: number; radius_m: number; active: boolean };
+type Zone = { id: number; name: string; lat: number; lng: number; radius_m: number; polygon: LatLng[] | null; active: boolean };
 type Settings = {
   settings: {
     outsideZonePolicy: "reason" | "block";
@@ -136,13 +137,25 @@ function AppPanel({ settings, onChange }: { settings: Settings["settings"]; onCh
 
 /* ---------------- Zones ---------------- */
 
+const NO_ZONES: MapZone[] = [];
+const round7 = (x: number) => Math.round(x * 1e7) / 1e7;
+
+function zoneSummary(z: Zone) {
+  if (isArea(z)) return `Drawn area, ${z.polygon.length} corners, ${fmtArea(areaInfo(z.polygon).areaM2)}`;
+  return `${z.radius_m} m radius, ${z.lat.toFixed(5)}, ${z.lng.toFixed(5)}`;
+}
+
 function ZonesPanel({ zones, onChange }: { zones: Zone[]; onChange: () => void }) {
   const [edit, setEdit] = useState<Partial<Zone> | null>(null);
   return (
     <Panel
       title="Attendance zone"
       actions={
-        <Button size="sm" variant="secondary" onClick={() => setEdit({ name: "", lat: zones[0]?.lat ?? 5.9458845, lng: zones[0]?.lng ?? 116.070886, radius_m: 150, active: true })}>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => setEdit({ name: "", lat: zones[0]?.lat ?? 5.9458845, lng: zones[0]?.lng ?? 116.070886, radius_m: 150, polygon: null, active: true })}
+        >
           <Plus className="size-4" /> Add zone
         </Button>
       }
@@ -155,16 +168,20 @@ function ZonesPanel({ zones, onChange }: { zones: Zone[]; onChange: () => void }
         <div>
           <p className="px-4 pt-3 text-[13px] leading-relaxed text-slate-600">
             Clocking in inside a zone counts as <span className="font-semibold text-teal-700">Internal</span>. Anywhere else is{" "}
-            <span className="font-semibold text-gold-700">External</span>.
+            <span className="font-semibold text-gold-700">External</span>. A zone can be a circle, or an area you draw around the school.
           </p>
           <ul className="mt-2">
             {zones.map((z) => (
               <li key={z.id} className="flex items-center gap-3 border-t border-navy-50 px-4 py-3">
-                <MapPinned className={cx("size-5 shrink-0", z.active ? "text-teal-600" : "text-slate-300")} />
+                {isArea(z) ? (
+                  <Pentagon className={cx("size-5 shrink-0", z.active ? "text-teal-600" : "text-slate-300")} />
+                ) : (
+                  <MapPinned className={cx("size-5 shrink-0", z.active ? "text-teal-600" : "text-slate-300")} />
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-navy-900">{z.name}</p>
                   <p className="text-[12.5px] text-slate-500 tabular">
-                    {z.radius_m} m radius, {z.lat.toFixed(5)}, {z.lng.toFixed(5)}
+                    {zoneSummary(z)}
                     {!z.active && ", switched off"}
                   </p>
                 </div>
@@ -181,29 +198,41 @@ function ZonesPanel({ zones, onChange }: { zones: Zone[]; onChange: () => void }
   );
 }
 
+type Shape = "circle" | "area";
+
 function ZoneSheet({ zone, onClose, onSaved }: { zone: Partial<Zone> | null; onClose: () => void; onSaved: () => void }) {
   const { busy, run } = useSave();
   const toast = useToast();
   const [f, setF] = useState<Partial<Zone>>({});
+  const [shape, setShape] = useState<Shape>("circle");
+  // The drawn outline, with earlier versions for Undo.
+  const [outline, setOutline] = useState<{ corners: LatLng[]; past: LatLng[][] }>({ corners: [], past: [] });
   const [locating, setLocating] = useState(false);
   const [recenter, setRecenter] = useState(0);
   useEffect(() => {
-    if (zone) setF(zone);
+    if (!zone) return;
+    setF(zone);
+    setShape(isArea(zone) ? "area" : "circle");
+    setOutline({ corners: zone.polygon ?? [], past: [] });
   }, [zone]);
+
+  const corners = outline.corners;
+  const info = useMemo(() => (corners.length >= 3 ? areaInfo(corners) : null), [corners]);
+  const editOutline = (next: (c: LatLng[]) => LatLng[]) =>
+    setOutline((o) => ({ corners: next(o.corners), past: [...o.past.slice(-49), o.corners] }));
+  const undo = () => setOutline((o) => (o.past.length ? { corners: o.past[o.past.length - 1], past: o.past.slice(0, -1) } : o));
 
   const preview = useMemo(
     () => (f.lat != null && f.lng != null ? [{ id: f.id ?? 0, name: f.name || "New zone", lat: f.lat, lng: f.lng, radius_m: f.radius_m ?? 150 }] : []),
     [f.id, f.name, f.lat, f.lng, f.radius_m],
   );
 
-  function useHere() {
+  function locate(then: (lat: number, lng: number, accuracy: number) => void) {
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (p) => {
-        setF((x) => ({ ...x, lat: Number(p.coords.latitude.toFixed(7)), lng: Number(p.coords.longitude.toFixed(7)) }));
-        setRecenter((n) => n + 1);
         setLocating(false);
-        toast(`Centre set to your position (±${Math.round(p.coords.accuracy)} m)`, "info");
+        then(round7(p.coords.latitude), round7(p.coords.longitude), Math.round(p.coords.accuracy));
       },
       () => {
         setLocating(false);
@@ -212,10 +241,40 @@ function ZoneSheet({ zone, onClose, onSaved }: { zone: Partial<Zone> | null; onC
       { enableHighAccuracy: true, timeout: 15000 },
     );
   }
+  const useHere = () =>
+    locate((lat, lng, acc) => {
+      setF((x) => ({ ...x, lat, lng }));
+      setRecenter((n) => n + 1);
+      toast(`Centre set to your position (±${acc} m)`, "info");
+    });
+  const addHere = () =>
+    locate((lat, lng, acc) => {
+      editOutline((c) => [...c, [lat, lng]]);
+      setRecenter((n) => n + 1);
+      toast(`Corner added at your position (±${acc} m)`, "info");
+    });
+  const switchShape = (next: Shape) => {
+    setShape(next);
+    setRecenter((n) => n + 1);
+  };
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    const body = { name: f.name, lat: Number(f.lat), lng: Number(f.lng), radius_m: Number(f.radius_m), active: f.active ?? true };
+    let body;
+    if (shape === "area") {
+      if (!info) return toast("Tap at least 3 corners of the area on the map.", "error");
+      if (info.crosses) return toast("The outline crosses itself. Drag the corners so the edges don't cross.", "error");
+      body = {
+        name: f.name,
+        lat: round7(info.centre[0]),
+        lng: round7(info.centre[1]),
+        radius_m: Math.min(5000, Math.max(20, Math.ceil(info.extentM))),
+        polygon: corners,
+        active: f.active ?? true,
+      };
+    } else {
+      body = { name: f.name, lat: Number(f.lat), lng: Number(f.lng), radius_m: Number(f.radius_m), polygon: null, active: f.active ?? true };
+    }
     const ok = await run(
       () => (f.id ? api(`/api/admin/zones/${f.id}`, { method: "PATCH", body }) : api("/api/admin/zones", { body })),
       f.id ? "Zone saved" : "Zone added",
@@ -228,46 +287,102 @@ function ZoneSheet({ zone, onClose, onSaved }: { zone: Partial<Zone> | null; onC
     if (ok) onSaved();
   }
 
+  const mapHint =
+    shape === "circle"
+      ? "Tap the map to move the centre"
+      : corners.length === 0
+        ? "Tap the map at each corner of the school"
+        : corners.length < 3
+          ? "Keep tapping to add corners (at least 3)"
+          : "Drag a corner to move it. Tap + to add a corner, double-click a corner to remove it.";
+
   return (
     <Sheet open={!!zone} onClose={onClose} title={f.id ? "Edit zone" : "Add zone"} wide>
       <form onSubmit={save} className="flex flex-col gap-4">
-        <div className="relative h-[300px] overflow-hidden rounded-2xl ring-1 ring-navy-100">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-[13px] font-semibold text-navy-900">Shape</span>
+          <Segmented<Shape>
+            value={shape}
+            onChange={switchShape}
+            options={[
+              { value: "circle", label: "Circle" },
+              { value: "area", label: "Draw area" },
+            ]}
+          />
+        </div>
+        <div className="relative h-[340px] overflow-hidden rounded-2xl ring-1 ring-navy-100">
           <MapView
             className="absolute inset-0"
-            zones={preview}
-            me={f.lat != null && f.lng != null ? { lat: f.lat, lng: f.lng, accuracy: 0 } : null}
-            fit="me"
+            zones={shape === "circle" ? preview : NO_ZONES}
+            me={shape === "circle" && f.lat != null && f.lng != null ? { lat: f.lat, lng: f.lng, accuracy: 0 } : null}
+            fit={shape === "circle" ? "me" : "zones"}
             recenterKey={recenter}
-            onPick={(lat, lng) => setF((x) => ({ ...x, lat: Number(lat.toFixed(7)), lng: Number(lng.toFixed(7)) }))}
+            onPick={shape === "circle" ? (lat, lng) => setF((x) => ({ ...x, lat: round7(lat), lng: round7(lng) })) : undefined}
+            draw={shape === "area" ? { points: corners, onChange: (next) => editOutline(() => next), label: f.name || "New zone" } : undefined}
           />
           <p className="pointer-events-none absolute inset-x-0 bottom-0 z-[500] bg-gradient-to-t from-navy-950/60 to-transparent px-3 pb-2 pt-6 text-[12.5px] font-medium text-white">
-            Tap the map to move the centre
+            {mapHint}
           </p>
         </div>
-        <Button type="button" variant="secondary" onClick={useHere} loading={locating}>
-          {!locating && <Crosshair className="size-4" />} Use my current location as the centre
-        </Button>
+        {shape === "area" ? (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="mr-auto text-[13.5px] text-navy-900 tabular" aria-live="polite">
+                <span className="font-semibold">
+                  {corners.length} corner{corners.length === 1 ? "" : "s"}
+                </span>
+                {info ? <span className="text-slate-500"> · {fmtArea(info.areaM2)}</span> : <span className="text-slate-500"> · at least 3 needed</span>}
+              </p>
+              <Button type="button" size="sm" variant="secondary" onClick={undo} disabled={!outline.past.length}>
+                <Undo2 className="size-4" /> Undo
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => editOutline(() => [])} disabled={!corners.length}>
+                <Eraser className="size-4" /> Clear
+              </Button>
+            </div>
+            {info?.crosses && (
+              <p className="rounded-xl bg-danger-50 px-3.5 py-2.5 text-[13px] font-medium text-danger-700" role="alert">
+                The outline crosses itself. Drag the corners so the edges don&apos;t cross.
+              </p>
+            )}
+            <Button type="button" variant="secondary" onClick={addHere} loading={locating}>
+              {!locating && <Crosshair className="size-4" />} Add my current location as a corner
+            </Button>
+            <p className="-mt-2 text-[12.5px] leading-snug text-slate-500">
+              Draw a little outside the fence and buildings: GPS indoors can be 20–50 m off. You can also walk the boundary with
+              your phone and add each corner where you stand.
+            </p>
+          </>
+        ) : (
+          <Button type="button" variant="secondary" onClick={useHere} loading={locating}>
+            {!locating && <Crosshair className="size-4" />} Use my current location as the centre
+          </Button>
+        )}
         <Field label="Name" hint="Shown on the map and saved with each clock-in.">
           {(id) => <Input id={id} value={f.name ?? ""} onChange={(e) => setF({ ...f, name: e.target.value })} required minLength={2} placeholder="DAICOE AI Center, KKHS" />}
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Latitude">{(id) => <Input id={id} type="number" step="any" value={f.lat ?? ""} onChange={(e) => setF({ ...f, lat: Number(e.target.value) })} required />}</Field>
-          <Field label="Longitude">{(id) => <Input id={id} type="number" step="any" value={f.lng ?? ""} onChange={(e) => setF({ ...f, lng: Number(e.target.value) })} required />}</Field>
-        </div>
-        <Field label={`Radius: ${f.radius_m ?? 150} m`} hint="Big enough to cover the building and car park. GPS indoors can be 20–50 m off.">
-          {(id) => (
-            <input
-              id={id}
-              type="range"
-              min={30}
-              max={1000}
-              step={10}
-              value={f.radius_m ?? 150}
-              onChange={(e) => setF({ ...f, radius_m: Number(e.target.value) })}
-              className="w-full accent-teal-600"
-            />
-          )}
-        </Field>
+        {shape === "circle" && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Latitude">{(id) => <Input id={id} type="number" step="any" value={f.lat ?? ""} onChange={(e) => setF({ ...f, lat: Number(e.target.value) })} required />}</Field>
+              <Field label="Longitude">{(id) => <Input id={id} type="number" step="any" value={f.lng ?? ""} onChange={(e) => setF({ ...f, lng: Number(e.target.value) })} required />}</Field>
+            </div>
+            <Field label={`Radius: ${f.radius_m ?? 150} m`} hint="Big enough to cover the building and car park. GPS indoors can be 20–50 m off.">
+              {(id) => (
+                <input
+                  id={id}
+                  type="range"
+                  min={30}
+                  max={1000}
+                  step={10}
+                  value={f.radius_m ?? 150}
+                  onChange={(e) => setF({ ...f, radius_m: Number(e.target.value) })}
+                  className="w-full accent-teal-600"
+                />
+              )}
+            </Field>
+          </>
+        )}
         {f.id && (
           <label className="flex items-center gap-3 rounded-xl bg-navy-50 px-3.5 py-3 text-[14px] font-medium text-navy-900">
             <input type="checkbox" checked={f.active ?? true} onChange={(e) => setF({ ...f, active: e.target.checked })} className="size-5 accent-navy-800" />

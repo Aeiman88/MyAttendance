@@ -44,7 +44,7 @@ export function resolveSchedule(schedules: Schedule[], scheduleId: number | null
 
 export async function loadZones(db: Db, activeOnly = true): Promise<(Zone & { active: boolean })[]> {
   return db.query(
-    `select id, name, lat, lng, radius_m, active from zones ${activeOnly ? "where active" : ""} order by id`,
+    `select id, name, lat, lng, radius_m, polygon, active from zones ${activeOnly ? "where active" : ""} order by id`,
   );
 }
 

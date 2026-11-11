@@ -58,7 +58,7 @@ export const GET = route(async () => {
     serverTime: now.toISOString(),
     today,
     schedule,
-    zones: zones.map(({ id, name, lat, lng, radius_m }) => ({ id, name, lat, lng, radius_m })),
+    zones: zones.map(({ id, name, lat, lng, radius_m, polygon }) => ({ id, name, lat, lng, radius_m, polygon: polygon ?? null })),
     policy: settings.outside_zone_policy === "block" ? "block" : "reason",
     maxAccuracy: Number(settings.max_accuracy_m || 1000),
     day: publicDay(day),

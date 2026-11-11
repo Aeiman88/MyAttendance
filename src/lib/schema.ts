@@ -4,7 +4,8 @@
 
 // v2: staff app (app download link, web clock-in switch). Bumping the version re-runs the
 // idempotent schema and adds any new default settings without touching existing data.
-export const SCHEMA_VERSION = "2";
+// v3: a zone can be a drawn area (zones.polygon) instead of a circle.
+export const SCHEMA_VERSION = "3";
 
 export const SCHEMA_SQL = /* sql */ `
 create table if not exists app_meta (
@@ -48,9 +49,13 @@ create table if not exists zones (
   lat        double precision not null check (lat between -90 and 90),
   lng        double precision not null check (lng between -180 and 180),
   radius_m   int not null default 200 check (radius_m between 20 and 5000),
+  polygon    jsonb,
   active     boolean not null default true,
   created_at timestamptz not null default now()
 );
+-- v3: drawn areas. Corners as [[lat, lng], ...]; null for a circle. For an area, lat/lng is its
+-- centre and radius_m reaches the farthest corner.
+alter table zones add column if not exists polygon jsonb;
 
 create table if not exists attendance (
   id             serial primary key,

@@ -9,7 +9,7 @@
 export type MapTiles = { url: string; attribution: string } | null;
 
 const OSM_CARTO =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noreferrer">CARTO</a>';
 
 export function mapTiles(): MapTiles {
   const custom = process.env.NEXT_PUBLIC_MAP_TILES?.trim();

@@ -147,6 +147,35 @@
 .ma-zone-label::before {
   display: none;
 }
+/* Drawing a zone outline: corners to drag, and "+" handles halfway along each edge. */
+.ma-vertex {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  border: 3px solid var(--color-teal-600);
+  box-shadow: 0 1px 4px rgb(6 18 46 / 0.35);
+  cursor: grab;
+}
+.ma-vertex.first {
+  background: var(--color-teal-600);
+  border-color: #fff;
+}
+.ma-mid {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.85);
+  border: 1.5px solid var(--color-teal-600);
+  color: var(--color-teal-700);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: copy;
+}
 .ma-pin {
   display: grid;
   place-items: center;

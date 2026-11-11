@@ -17,7 +17,7 @@ Staff attendance for the **DAICOE AI Center, Kota Kinabalu High School**. Staff 
 - **Records:** every clock-in and clock-out with its GPS position. You can edit or add records, but only with a reason, and every change goes to the audit log. Records flag a **shared device** when one phone clocked in for two people on the same day. Export to Excel (CSV).
 - **Requests:** approve or reject. Approved leave and duty fill *Perkara Khas*. An approved time correction updates the record.
 - **Print:** the paper form, auto-filled. Two weeks per A4 landscape page, for one person or everyone, with or without signatures.
-- **Settings:** the staff app download link, zones on a map ("use my current location"), what happens outside the zone, the GPS accuracy limit, working-hour slots (WP1/WP2/WP3), public holidays (Sabah 2026 included) and the form title.
+- **Settings:** the staff app download link, zones on a map (a circle, or an area drawn around the school), what happens outside the zone, the GPS accuracy limit, working-hour slots (WP1/WP2/WP3), public holidays (Sabah 2026 included) and the form title.
 - **Staff app page** (`/app`): a download button, a QR code and three install steps, for sharing with staff.
 
 Staff who try to log in on the website are pointed to the app. If someone can't install it yet (for example an iPhone user), **Settings → Staff app → Also allow clocking in on the website** opens the website to staff again.
@@ -114,7 +114,7 @@ The same code builds for iPhone with `eas build --platform ios`, but installing 
 
 ## 4. First-day checklist (admin)
 
-1. **Settings → Attendance zone:** stand inside the DAICOE AI Center, edit the zone and tap **Use my current location as the centre**. Set a radius that covers the building and car park (indoor GPS can be 20–50 m off), then save. The default zone is centred on the KKHS campus with a 200 m radius.
+1. **Settings → Attendance zone:** edit the zone and choose its shape. **Draw area** follows the school grounds: tap each corner of the area on the map, drag a corner to move it, tap **+** on an edge to add a corner, and double-click a corner to remove it (or walk the boundary with your phone and tap **Add my current location as a corner** at each corner). **Circle** is a centre and a radius: stand inside the DAICOE AI Center and tap **Use my current location as the centre**. Either way, leave some room around the buildings and car park, because indoor GPS can be 20–50 m off. The default zone is a 200 m circle on the KKHS campus.
 2. **Settings → Working hours:** check the slots (WP1 7:30–4:30, WP2 8:00–5:00, WP3 8:30–5:30, Mon–Fri) and pick the default for new staff. Add a grace period if a few minutes late shouldn't count.
 3. **Settings → Public holidays:** Sabah's 2026 holidays are already included. Add 2027's once they are gazetted.
 4. **Settings → Staff app:** paste the Android download link (section 3).
@@ -127,7 +127,7 @@ The same code builds for iPhone with `eas build --platform ios`, but installing 
 | --- | --- |
 | Time | Always the server's clock, in Malaysia time (UTC+8). Changing the phone's clock has no effect. |
 | Location | Saved only at the moment someone clocks in or out. The app reads GPS only while its Clock screen is open; nothing runs in the background. |
-| Internal / External | Inside any active zone is Internal. Outside, the person must give a reason (or is blocked, if the admin chose that). |
+| Internal / External | Inside any active zone (a circle, or the area drawn around the school) is Internal. Outside, the person must give a reason (or is blocked, if the admin chose that), and the record shows how far outside they were. |
 | Accuracy | Positions less accurate than the limit (default 1000 m) are refused, which stops rough network-based locations. |
 | Fake GPS | The app refuses a position that Android marks as coming from a mock-location app, and the server checks the same flag. |
 | Late | Clocking in after the slot's start time plus the grace period. Not counted on holidays, approved leave days or non-working days. |

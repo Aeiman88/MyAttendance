@@ -1,6 +1,14 @@
 import { LEAFLET_CSS, LEAFLET_JS } from "./leaflet-assets";
 
-export type MapZone = { id: number; name: string; lat: number; lng: number; radius_m: number };
+export type MapZone = {
+  id: number;
+  name: string;
+  lat: number;
+  lng: number;
+  radius_m: number;
+  /** A drawn area's corners as [lat, lng]; null or missing for a circle. */
+  polygon?: [number, number][] | null;
+};
 export type MapState = {
   zones: MapZone[];
   me: { lat: number; lng: number; accuracy: number } | null;
@@ -16,7 +24,7 @@ export const BUILT_IN_TILES: MapTiles = process.env.EXPO_PUBLIC_MAP_TILES
   ? {
       url: process.env.EXPO_PUBLIC_MAP_TILES,
       attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noreferrer">CARTO</a>',
     }
   : null;
 
@@ -56,27 +64,46 @@ html,body,#map{margin:0;padding:0;height:100%;width:100%;}
   var state={zones:[],me:null,padBottom:116}, framed='none';
   function esc(s){return String(s).replace(/[&<>"']/g,function(c){return '&#'+c.charCodeAt(0)+';';});}
   function dist(a,b,c,d){var R=6371008.8,t=Math.PI/180,x=(c-a)*t,y=(d-b)*t,h=Math.pow(Math.sin(x/2),2)+Math.cos(a*t)*Math.cos(c*t)*Math.pow(Math.sin(y/2),2);return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));}
+  function isArea(z){return !!(z.polygon&&z.polygon.length>=3);}
+  // Signed distance to a zone's edge in metres (negative inside), the same rule the server uses.
+  function edge(z,lat,lng){ if(!isArea(z)) return dist(lat,lng,z.lat,z.lng)-z.radius_m;
+    var R=6371008.8,t=Math.PI/180,c=Math.cos(lat*t),p=z.polygon,n=p.length,inside=false,best=Infinity;
+    function xy(q){return [R*(q[1]-lng)*t*c,R*(q[0]-lat)*t];}
+    for(var i=0,j=n-1;i<n;j=i++){ var a=xy(p[i]),b=xy(p[j]);
+      if((a[1]>0)!==(b[1]>0)&&0<(b[0]-a[0])*(-a[1])/(b[1]-a[1])+a[0]) inside=!inside;
+      var dx=b[0]-a[0],dy=b[1]-a[1],l=dx*dx+dy*dy,u=l?Math.max(0,Math.min(1,-(a[0]*dx+a[1]*dy)/l)):0;
+      best=Math.min(best,Math.hypot(a[0]+u*dx,a[1]+u*dy)); }
+    return inside?-best:best; }
+  // The middle of a zone, the latitude of its top edge (where the label sits) and its bounding corners.
+  function box(z){ if(isArea(z)){ var n=-90,s=90,e=-180,w=180;
+      z.polygon.forEach(function(q){n=Math.max(n,q[0]);s=Math.min(s,q[0]);e=Math.max(e,q[1]);w=Math.min(w,q[1]);});
+      return {mid:[(n+s)/2,(e+w)/2],top:n,corners:[[n,w],[s,e]]}; }
+    var d=z.radius_m/111320, dl=d/Math.cos(z.lat*Math.PI/180);
+    return {mid:[z.lat,z.lng],top:z.lat+d,corners:[[z.lat+d,z.lng-dl],[z.lat-d,z.lng+dl]]}; }
   function insideZone(){ if(!state.me) return null; var best=null;
-    state.zones.forEach(function(z){var e=dist(state.me.lat,state.me.lng,z.lat,z.lng)-z.radius_m; if(!best||e<best.e) best={z:z,e:e};});
+    state.zones.forEach(function(z){var e=edge(z,state.me.lat,state.me.lng); if(!best||e<best.e) best={z:z,e:e};});
     return best&&best.e<=0?best.z:null; }
   function drawZones(){ zonesLayer.clearLayers();
     state.zones.forEach(function(z){
-      L.circle([z.lat,z.lng],{radius:z.radius_m,color:'#0c8e8a',weight:2,dashArray:'6 6',fillColor:'#12a8a2',fillOpacity:.09,interactive:false}).addTo(zonesLayer);
-      L.marker([z.lat+z.radius_m/111320,z.lng],{interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:[0,0],html:'<span class="zl">'+esc(z.name)+'</span>'})}).addTo(zonesLayer);
+      var style={color:'#0c8e8a',weight:2,dashArray:'6 6',fillColor:'#12a8a2',fillOpacity:.09,interactive:false}, b=box(z);
+      if(isArea(z)) L.polygon(z.polygon,style).addTo(zonesLayer);
+      else L.circle([z.lat,z.lng],Object.assign({radius:z.radius_m},style)).addTo(zonesLayer);
+      L.marker([b.top,b.mid[1]],{interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:[0,0],html:'<span class="zl">'+esc(z.name)+'</span>'})}).addTo(zonesLayer);
     }); }
   function drawMe(){ meLayer.clearLayers(); var m=state.me; if(!m) return;
     L.circle([m.lat,m.lng],{radius:Math.min(m.accuracy,2000),color:'#5d5fe6',weight:1,opacity:.5,fillColor:'#5d5fe6',fillOpacity:.1,interactive:false}).addTo(meLayer);
     L.marker([m.lat,m.lng],{interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:[22,22],iconAnchor:[11,11],html:'<span class="me"><i class="p"></i><i class="d"></i></span>'})}).addTo(meLayer); }
   function frame(animate){
     var motion=animate?{animate:true}:{reset:true}, pts=[], pad=state.padBottom||24;
-    state.zones.forEach(function(z){var b=L.latLng(z.lat,z.lng).toBounds(z.radius_m*2);pts.push(b.getNorthWest(),b.getSouthEast());});
+    state.zones.forEach(function(z){box(z).corners.forEach(function(c){pts.push(L.latLng(c[0],c[1]));});});
     if(state.me) pts.push(L.latLng(state.me.lat,state.me.lng));
     if(!pts.length) return 'none';
     var z=insideZone();
     if(z&&state.me){
       var size=map.getSize(), bandBottom=size.y-pad+16;
-      var centre=function(zm){return map.project([z.lat,z.lng],zm);};
-      var radiusPx=function(zm){return centre(zm).y-map.project([z.lat+z.radius_m/111320,z.lng],zm).y;};
+      var b=box(z);
+      var centre=function(zm){return map.project(b.mid,zm);};
+      var radiusPx=function(zm){return centre(zm).y-map.project([b.top,b.mid[1]],zm).y;};
       var limits=function(zm){return {low:radiusPx(zm)+46,high:bandBottom-(map.project([state.me.lat,state.me.lng],zm).y-centre(zm).y)};};
       var zoom=16; while(zoom>13&&limits(zoom).low>limits(zoom).high) zoom-=0.5;
       var l=limits(zoom), zoneY=l.low<=l.high?(l.low+l.high)/2:l.high;

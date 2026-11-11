@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { StyleProp, ViewStyle } from "react-native";
+import { Linking, type StyleProp, type ViewStyle } from "react-native";
 import { WebView } from "react-native-webview";
 import { serverBase } from "@/api";
 import { buildMapHtml, type MapState, type MapTiles } from "./map-html";
@@ -17,6 +17,7 @@ export function MapView({
   style?: StyleProp<ViewStyle>;
 }) {
   const ref = useRef<{ injectJavaScript: (js: string) => void } | null>(null);
+  const base = `${serverBase() || "https://localhost"}/`;
   const [ready, setReady] = useState(false);
   const tileUrl = tiles?.url ?? null;
   const tileCredit = tiles?.attribution ?? null;
@@ -36,8 +37,17 @@ export function MapView({
     <WebView
       ref={ref as never}
       // The page runs as the MyAttendance website, so a map key limited to that website also works here.
-      source={{ html, baseUrl: `${serverBase() || "https://localhost"}/` }}
+      source={{ html, baseUrl: base }}
       originWhitelist={["*"]}
+      // Links on the map (the map credits) open in the phone's browser instead of replacing the map.
+      onShouldStartLoadWithRequest={(req: { url: string }) => {
+        if (req.url === base || req.url.startsWith("about:") || req.url.startsWith("data:")) return true;
+        if (/^https?:/i.test(req.url)) Linking.openURL(req.url).catch(() => {});
+        return false;
+      }}
+      onOpenWindow={(e: { nativeEvent: { targetUrl: string } }) => {
+        if (/^https?:/i.test(e.nativeEvent.targetUrl)) Linking.openURL(e.nativeEvent.targetUrl).catch(() => {});
+      }}
       onMessage={(e: { nativeEvent: { data: string } }) => e.nativeEvent.data === "ready" && setReady(true)}
       scrollEnabled={false}
       bounces={false}

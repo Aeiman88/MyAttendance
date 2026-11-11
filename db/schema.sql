@@ -44,9 +44,12 @@ create table if not exists zones (
   lat        double precision not null check (lat between -90 and 90),
   lng        double precision not null check (lng between -180 and 180),
   radius_m   int not null default 200 check (radius_m between 20 and 5000),
+  polygon    jsonb,
   active     boolean not null default true,
   created_at timestamptz not null default now()
 );
+-- A zone can be a drawn area: corners as [[lat, lng], ...]; null for a circle.
+alter table zones add column if not exists polygon jsonb;
 
 create table if not exists attendance (
   id             serial primary key,

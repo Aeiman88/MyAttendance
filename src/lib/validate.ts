@@ -23,6 +23,12 @@ export const zoneFields = {
   lng: z.number().min(-180).max(180),
   radius_m: z.number().int().min(20, "at least 20 m").max(5000, "at most 5 km"),
   active: z.boolean(),
+  /** A drawn area's corners as [lat, lng]; null for a circle. */
+  polygon: z
+    .array(z.tuple([z.number().min(-90).max(90), z.number().min(-180).max(180)]))
+    .min(3, "draw at least 3 corners")
+    .max(100, "use at most 100 corners")
+    .nullable(),
 };
 
 export const scheduleFields = {
